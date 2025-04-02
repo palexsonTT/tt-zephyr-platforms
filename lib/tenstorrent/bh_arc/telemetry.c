@@ -110,7 +110,7 @@ static void UpdateGddrTelemetry(void)
 			 * [15] - Error GDDR 7
 			 */
 			telemetry[GDDR_STATUS] |= (gddr_telemetry.training_complete << (i * 2)) |
-				(gddr_telemetry.gddr_error << (i * 2 + 1));
+						  (gddr_telemetry.gddr_error << (i * 2 + 1));
 
 			/* DDR_x_y_TEMP:
 			 * [31:24] GDDR y top
@@ -146,17 +146,31 @@ static void UpdateGddrTelemetry(void)
 				(gddr_telemetry.uncorr_edc_wr_error << (i * 2 + 1));
 			/* GDDR speed - in Mbps */
 			telemetry[GDDR_SPEED] = gddr_telemetry.dram_speed;
-
 		}
 	}
 }
 
+int GetMaxGDDRTemp(void)
+{
+	int max_gddr_temp = 0;
+
+	for (int i = 0; i < NUM_GDDR; i++) {
+		int shift_val = (i % 2) * 16;
+
+		max_gddr_temp =
+			MAX(max_gddr_temp, (telemetry[GDDR_0_1_TEMP + i / 2] >> shift_val) & 0xFF);
+		max_gddr_temp = MAX(max_gddr_temp,
+				    (telemetry[GDDR_0_1_TEMP + i / 2] >> (shift_val + 8)) & 0xFF);
+	}
+
+	return max_gddr_temp;
+}
+
 static void write_static_telemetry(uint32_t app_version)
 {
-	telemetry_table.version =
-		TELEMETRY_VERSION; /* v0.1.0 - Only update when redefining the
-				    * meaning of an existing tag
-				    */
+	telemetry_table.version = TELEMETRY_VERSION;    /* v0.1.0 - Only update when redefining the
+							 * meaning of an existing tag
+							 */
 	telemetry_table.entry_count = TELEM_ENUM_COUNT; /* Runtime count of telemetry entries */
 
 	/* Get the static values */
@@ -236,6 +250,7 @@ static void update_telemetry(void)
 	telemetry[FAN_SPEED] = GetFanSpeed(); /* Target fan speed - reported in percentage */
 	telemetry[FAN_RPM] = GetFanRPM();     /* Actual fan RPM */
 	UpdateGddrTelemetry();
+	telemetry[MAX_GDDR_TEMP] = GetMaxGDDRTemp();
 	telemetry[INPUT_CURRENT] =
 		GetInputCurrent();    /* Input current - reported in A in signed int 16.16 format */
 	telemetry[TIMER_HEARTBEAT]++; /* Incremented every time the timer is called */
